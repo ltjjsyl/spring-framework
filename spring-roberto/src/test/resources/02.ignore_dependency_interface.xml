@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans	http://www.springframework.org/schema/beans/spring-beans.xsd">
+	<bean id="ignoreEntity" class="org.springframework.roberto._02_ignore_dependency_interface.IgnoreEntity"
+		  autowire="byName">
+
+	</bean>
+
+	<bean id="beanFactory" class="org.springframework.beans.factory.xml.XmlBeanFactory">
+		<constructor-arg index="0" ref="resource"/>
+	</bean>
+
+	<bean id="resource" class="org.springframework.core.io.ClassPathResource">
+		<constructor-arg index="0" value="01.ioc_simple_impl.xml"/>
+	</bean>
+</beans>
