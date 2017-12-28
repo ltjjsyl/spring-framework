@@ -46,20 +46,21 @@ public class SimpleAliasRegistry implements AliasRegistry {
 		Assert.hasText(name, "'name' must not be empty");
 		Assert.hasText(alias, "'alias' must not be empty");
 		if (alias.equals(name)) {
+			// 如果beanName与alias相同的话不记录alias 并删除对应的alias
 			this.aliasMap.remove(alias);
-		}
-		else {
+		} else {
 			String registeredName = this.aliasMap.get(alias);
 			if (registeredName != null) {
 				if (registeredName.equals(name)) {
-					// An existing alias - no need to re-register
+					// 如果别名已经注册过 不做处理
 					return;
 				}
+				// 如果alias不允许被覆盖则抛出异常
 				if (!allowAliasOverriding()) {
-					throw new IllegalStateException("Cannot register alias '" + alias + "' for name '" +
-							name + "': It is already registered for name '" + registeredName + "'.");
+					throw new IllegalStateException("Cannot register alias '" + alias + "' for name '" + name + "': It is already registered for name '" + registeredName + "'.");
 				}
 			}
+			// 校验循环指向依赖 如A->B B->C C->A则出错
 			checkForAliasCircle(name, alias);
 			this.aliasMap.put(alias, name);
 		}
@@ -179,9 +180,7 @@ public class SimpleAliasRegistry implements AliasRegistry {
 	 */
 	protected void checkForAliasCircle(String name, String alias) {
 		if (hasAlias(alias, name)) {
-			throw new IllegalStateException("Cannot register alias '" + alias +
-					"' for name '" + name + "': Circular reference - '" +
-					name + "' is a direct or indirect alias for '" + alias + "' already");
+			throw new IllegalStateException("Cannot register alias '" + alias + "' for name '" + name + "': Circular reference - '" + name + "' is a direct or indirect alias for '" + alias + "' already");
 		}
 	}
 

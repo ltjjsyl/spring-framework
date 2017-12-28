@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans	http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+	<beans>
+		<bean id="vocalConcert" class="org.springframework.roberto._05_lookup_method.VocalConcert">
+			<lookup-method name="getSinger" bean="easonChen" />
+		</bean>
+
+		<bean id="easonChen" class="org.springframework.roberto._05_lookup_method.EasonChen">
+			<replaced-method name="sing" replacer="easonChenBack" />
+		</bean>
+
+		<bean id="easonChenBack" class="org.springframework.roberto._06_replace_method.EasonChenBack"/>
+	</beans>
+</beans>

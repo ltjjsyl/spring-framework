@@ -16,68 +16,27 @@
 
 package org.springframework.beans.factory.support;
 
-import java.io.IOException;
-import java.io.NotSerializableException;
-import java.io.ObjectInputStream;
-import java.io.ObjectStreamException;
-import java.io.Serializable;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.TypeConverter;
+import org.springframework.beans.factory.*;
+import org.springframework.beans.factory.config.*;
+import org.springframework.core.OrderComparator;
+import org.springframework.core.ResolvableType;
+import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.lang.Nullable;
+import org.springframework.util.*;
+
+import javax.inject.Provider;
+import java.io.*;
 import java.lang.annotation.Annotation;
 import java.lang.ref.Reference;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Method;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.IdentityHashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import javax.inject.Provider;
-
-import org.springframework.beans.BeanUtils;
-import org.springframework.beans.BeansException;
-import org.springframework.beans.TypeConverter;
-import org.springframework.beans.factory.BeanCreationException;
-import org.springframework.beans.factory.BeanCurrentlyInCreationException;
-import org.springframework.beans.factory.BeanDefinitionStoreException;
-import org.springframework.beans.factory.BeanFactory;
-import org.springframework.beans.factory.BeanFactoryAware;
-import org.springframework.beans.factory.BeanFactoryUtils;
-import org.springframework.beans.factory.BeanNotOfRequiredTypeException;
-import org.springframework.beans.factory.CannotLoadBeanClassException;
-import org.springframework.beans.factory.FactoryBean;
-import org.springframework.beans.factory.InjectionPoint;
-import org.springframework.beans.factory.NoSuchBeanDefinitionException;
-import org.springframework.beans.factory.NoUniqueBeanDefinitionException;
-import org.springframework.beans.factory.ObjectFactory;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.SmartFactoryBean;
-import org.springframework.beans.factory.SmartInitializingSingleton;
-import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
-import org.springframework.beans.factory.config.BeanDefinition;
-import org.springframework.beans.factory.config.BeanDefinitionHolder;
-import org.springframework.beans.factory.config.ConfigurableBeanFactory;
-import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
-import org.springframework.beans.factory.config.DependencyDescriptor;
-import org.springframework.beans.factory.config.NamedBeanHolder;
-import org.springframework.core.OrderComparator;
-import org.springframework.core.ResolvableType;
-import org.springframework.core.annotation.AnnotationUtils;
-import org.springframework.lang.Nullable;
-import org.springframework.util.Assert;
-import org.springframework.util.ClassUtils;
-import org.springframework.util.CompositeIterator;
-import org.springframework.util.ObjectUtils;
-import org.springframework.util.StringUtils;
 
 /**
  * Default implementation of the
@@ -784,60 +743,50 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 	//---------------------------------------------------------------------
 
 	@Override
-	public void registerBeanDefinition(String beanName, BeanDefinition beanDefinition)
-			throws BeanDefinitionStoreException {
-
+	public void registerBeanDefinition(String beanName, BeanDefinition beanDefinition) throws BeanDefinitionStoreException {
 		Assert.hasText(beanName, "Bean name must not be empty");
 		Assert.notNull(beanDefinition, "BeanDefinition must not be null");
 
 		if (beanDefinition instanceof AbstractBeanDefinition) {
 			try {
+				// 注册前的最后一次校验，这里的校验不同于XML文件校验
+				// 主要是对于AbstractBeanDefinition属性中的methodOverrides校验
+				// 校验methodOverrides是否与工厂方法并存或者methodOverrides对于的方法根本不存在
 				((AbstractBeanDefinition) beanDefinition).validate();
-			}
-			catch (BeanDefinitionValidationException ex) {
-				throw new BeanDefinitionStoreException(beanDefinition.getResourceDescription(), beanName,
-						"Validation of bean definition failed", ex);
+			} catch (BeanDefinitionValidationException ex) {
+				throw new BeanDefinitionStoreException(beanDefinition.getResourceDescription(), beanName, "Validation of bean definition failed", ex);
 			}
 		}
 
 		BeanDefinition oldBeanDefinition;
-
+		// 获取缓存中的beanDefinition
 		oldBeanDefinition = this.beanDefinitionMap.get(beanName);
 		if (oldBeanDefinition != null) {
+			// 如果缓存中存在 判断是否允许覆盖
 			if (!isAllowBeanDefinitionOverriding()) {
-				throw new BeanDefinitionStoreException(beanDefinition.getResourceDescription(), beanName,
-						"Cannot register bean definition [" + beanDefinition + "] for bean '" + beanName +
-						"': There is already [" + oldBeanDefinition + "] bound.");
-			}
-			else if (oldBeanDefinition.getRole() < beanDefinition.getRole()) {
-				// e.g. was ROLE_APPLICATION, now overriding with ROLE_SUPPORT or ROLE_INFRASTRUCTURE
+				throw new BeanDefinitionStoreException(beanDefinition.getResourceDescription(), beanName, "Cannot register bean definition [" + beanDefinition + "] for bean '" + beanName + "': There is already [" + oldBeanDefinition + "] bound.");
+			} else if (oldBeanDefinition.getRole() < beanDefinition.getRole()) {
 				if (this.logger.isWarnEnabled()) {
-					this.logger.warn("Overriding user-defined bean definition for bean '" + beanName +
-							"' with a framework-generated bean definition: replacing [" +
-							oldBeanDefinition + "] with [" + beanDefinition + "]");
+					this.logger.warn("Overriding user-defined bean definition for bean '" + beanName + "' with a framework-generated bean definition: replacing [" + oldBeanDefinition + "] with [" + beanDefinition + "]");
 				}
-			}
-			else if (!beanDefinition.equals(oldBeanDefinition)) {
+			} else if (!beanDefinition.equals(oldBeanDefinition)) {
 				if (this.logger.isInfoEnabled()) {
-					this.logger.info("Overriding bean definition for bean '" + beanName +
-							"' with a different definition: replacing [" + oldBeanDefinition +
-							"] with [" + beanDefinition + "]");
+					this.logger.info("Overriding bean definition for bean '" + beanName + "' with a different definition: replacing [" + oldBeanDefinition + "] with [" + beanDefinition + "]");
 				}
-			}
-			else {
+			} else {
 				if (this.logger.isDebugEnabled()) {
-					this.logger.debug("Overriding bean definition for bean '" + beanName +
-							"' with an equivalent definition: replacing [" + oldBeanDefinition +
-							"] with [" + beanDefinition + "]");
+					this.logger.debug("Overriding bean definition for bean '" + beanName + "' with an equivalent definition: replacing [" + oldBeanDefinition + "] with [" + beanDefinition + "]");
 				}
 			}
+			// 如果允许覆盖，保存beanDefinition到beanDefinitionMap中
 			this.beanDefinitionMap.put(beanName, beanDefinition);
-		}
-		else {
+		} else {
+			// 判断是否已经开始创建bean
 			if (hasBeanCreationStarted()) {
-				// Cannot modify startup-time collection elements anymore (for stable iteration)
 				synchronized (this.beanDefinitionMap) {
+					// 保存beanDefinition到beanDefinitionMap中
 					this.beanDefinitionMap.put(beanName, beanDefinition);
+					// 更新已经注册的beanName
 					List<String> updatedDefinitions = new ArrayList<>(this.beanDefinitionNames.size() + 1);
 					updatedDefinitions.addAll(this.beanDefinitionNames);
 					updatedDefinitions.add(beanName);
@@ -848,9 +797,8 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 						this.manualSingletonNames = updatedSingletons;
 					}
 				}
-			}
-			else {
-				// Still in startup registration phase
+			} else {
+				// 还没开始创建bean
 				this.beanDefinitionMap.put(beanName, beanDefinition);
 				this.beanDefinitionNames.add(beanName);
 				this.manualSingletonNames.remove(beanName);
@@ -859,6 +807,7 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 		}
 
 		if (oldBeanDefinition != null || containsSingleton(beanName)) {
+			// 重置beanName对应的缓存
 			resetBeanDefinition(beanName);
 		}
 	}
