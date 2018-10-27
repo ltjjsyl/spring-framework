@@ -1,7 +1,16 @@
 buildscript {
 	repositories {
+		mavenLocal()
+		maven { url "http://maven.aliyun.com/nexus/content/groups/public/"}
+		mavenCentral()
+		jcenter()
+		maven { url "https://repo.spring.io/snapshot" }
+		maven { url "https://repo.spring.io/milestone" }
+		maven { url 'http://oss.jfrog.org/artifactory/oss-snapshot-local/' }
 		maven { url "https://repo.spring.io/plugins-release" }
+		maven { url 'http://maven.aliyun.com/nexus/content/repositories/jcenter'}
 	}
+
 	dependencies {
 		classpath("io.spring.gradle:propdeps-plugin:0.0.8")
 		classpath("io.spring.gradle:docbook-reference-plugin:0.3.1")
@@ -15,13 +24,8 @@ plugins {
 	id "com.gradle.build-scan" version "1.8"
 	id "io.spring.dependency-management" version "1.0.3.RELEASE" apply false
 	id "org.jetbrains.kotlin.jvm" version "1.2.10" apply false
-	id "org.jetbrains.dokka" version "0.9.15"
+	id "org.jetbrains.dokka" version "0.9.17"
 	id "org.asciidoctor.convert" version "1.5.6"
-}
-
-buildScan {
-	licenseAgreementUrl = 'https://gradle.com/terms-of-service'
-	licenseAgree = 'yes'
 }
 
 ext {
